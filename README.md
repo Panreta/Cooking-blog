@@ -1,4 +1,4 @@
-# Cook Bible — a shared cooking blog
+# Cooking Bible — a shared cooking blog
 
 Anyone with an account can log in, upload photos, and write a recipe. The site arranges each post into a recipe page (cover photo, ingredient checklist, numbered steps with photos, tips).
 

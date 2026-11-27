@@ -16,7 +16,7 @@ import Base from '../layouts/Base.astro';
   const id = new URLSearchParams(location.search).get('id');
 
   function render(p: Post, isOwner: boolean) {
-    document.title = `${p.title} · Cook Bible`;
+    document.title = `${p.title} · Cooking Bible`;
     const facts = [
       ['Prep', p.prep_time],
       ['Cook', p.cook_time],

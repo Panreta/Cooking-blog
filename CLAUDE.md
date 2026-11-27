@@ -47,4 +47,4 @@ Node >= 22.23 is required by Astro 7; CI uses Node 24.
 - `schema.sql` now includes explicit `grant`s, because newer Supabase projects don't auto-grant table access to `anon`/`authenticated` (without them the site shows "permission denied for table posts").
 - Signup, upload, and save have **not** been tested end-to-end yet.
 - Free-tier note: Supabase pauses a project after 7 days with no activity. The data is kept and can be restored with one click within 90 days. A keep-alive GitHub Action that pings Supabase on a schedule was offered but not yet added.
-- The site name "Cook Bible" appears in `Base.astro`, `post.astro` (`document.title`), and the README.
+- The site name "Cooking Bible" appears in `Base.astro`, `post.astro` (`document.title`), and the README.
