@@ -20,9 +20,6 @@ create table if not exists public.posts (
   updated_at  timestamptz not null default now()
 );
 
--- There are no accounts any more, so posts no longer belong to a user.
-alter table public.posts drop column if exists author_id;
-
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 
 alter table public.posts enable row level security;
@@ -39,6 +36,10 @@ drop policy if exists "anyone can read posts" on public.posts;
 drop policy if exists "anyone can add posts" on public.posts;
 drop policy if exists "anyone can edit posts" on public.posts;
 drop policy if exists "anyone can delete posts" on public.posts;
+
+-- There are no accounts any more, so posts no longer belong to a user
+-- (dropped after the old policies above, which referenced this column).
+alter table public.posts drop column if exists author_id;
 
 create policy "anyone can read posts" on public.posts for select using (true);
 create policy "anyone can add posts" on public.posts for insert with check (true);
