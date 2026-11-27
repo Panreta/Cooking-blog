@@ -24,6 +24,10 @@ create index if not exists posts_created_at_idx on public.posts (created_at desc
 
 alter table public.posts enable row level security;
 
+-- Newer Supabase projects don't auto-grant table access to the API roles; RLS below still limits rows.
+grant select on public.posts to anon, authenticated;
+grant insert, update, delete on public.posts to authenticated;
+
 -- Anyone (even logged out) can read posts.
 drop policy if exists "posts are public" on public.posts;
 create policy "posts are public" on public.posts

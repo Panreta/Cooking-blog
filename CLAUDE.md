@@ -42,12 +42,9 @@ Node >= 22.23 is required by Astro 7; CI uses Node 24.
 
 ## Status (as of 2026-11-26)
 
-- Code is complete and builds. **Nothing has been committed or pushed yet.** Ask before pushing, because a push publishes the site.
-- Signup, upload, and save have **not** been tested end-to-end, because Supabase isn't connected yet.
-- Owner's remaining setup (also in README.md):
-  1. Create a Supabase project and run `supabase/schema.sql` in the SQL Editor.
-  2. Fill in `src/config.ts`. The values are in the dashboard's **Connect** button, or Project Settings → Data API (URL) and → API Keys (publishable key).
-  3. In Supabase, go to Authentication → URL Configuration and set the Site URL to `https://panreta.github.io/Cooking-blog/`.
-  4. In GitHub, go to Settings → Pages → Source and choose "GitHub Actions".
+- Deployed and live. `src/config.ts` is filled in with the owner's Supabase project, and every push to `main` publishes the site.
+- The owner works only through GitHub's web UI, not locally.
+- `schema.sql` now includes explicit `grant`s, because newer Supabase projects don't auto-grant table access to `anon`/`authenticated` (without them the site shows "permission denied for table posts").
+- Signup, upload, and save have **not** been tested end-to-end yet.
 - Free-tier note: Supabase pauses a project after 7 days with no activity. The data is kept and can be restored with one click within 90 days. A keep-alive GitHub Action that pings Supabase on a schedule was offered but not yet added.
-- The placeholder site name "Simmer & Crumb" appears in `Base.astro`, `post.astro` (`document.title`), and the README.
+- The site name "Cook Bible" appears in `Base.astro`, `post.astro` (`document.title`), and the README.
