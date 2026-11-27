@@ -31,9 +31,7 @@ const { title } = Astro.props;
         <a href={url()} class="brand">{siteName}</a>
         <nav id="nav">
           <a href={url()} class="nav-home">Recipes</a>
-          <a href={url('login/')} data-auth="out">Log in</a>
-          <a href={url('new/')} class="nav-cta" data-auth="in" hidden>+ New post</a>
-          <button type="button" class="link-btn" id="logout" data-auth="in" hidden>Log out</button>
+          <a href={url('new/')} class="nav-cta">+ Add recipe</a>
         </nav>
       </div>
     </header>
@@ -43,24 +41,5 @@ const { title } = Astro.props;
     <footer class="site-footer">
       <div class="container">© {new Date().getFullYear()} {siteName}</div>
     </footer>
-
-    <script>
-      import { supabase } from '../lib/supabase';
-      import { url } from '../lib/util';
-
-      function setNav(loggedIn: boolean) {
-        document.querySelectorAll<HTMLElement>('[data-auth]').forEach((el) => {
-          el.hidden = el.dataset.auth !== (loggedIn ? 'in' : 'out');
-        });
-      }
-
-      supabase.auth.getSession().then(({ data }) => setNav(!!data.session));
-      supabase.auth.onAuthStateChange((_event, session) => setNav(!!session));
-
-      document.getElementById('logout')!.addEventListener('click', async () => {
-        await supabase.auth.signOut();
-        location.href = url();
-      });
-    </script>
   </body>
 </html>

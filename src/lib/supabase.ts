@@ -12,7 +12,6 @@ export interface Step {
 
 export interface Post {
   id: string;
-  author_id: string;
   author_name: string;
   title: string;
   description: string;
@@ -28,15 +27,6 @@ export interface Post {
   created_at: string;
 }
 
-export async function getUser() {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user ?? null;
-}
-
-export function displayName(user: { email?: string; user_metadata?: Record<string, unknown> }) {
-  return (user.user_metadata?.display_name as string) || user.email?.split('@')[0] || 'Anonymous';
-}
-
 // Shrink photos in the browser before upload so phone pictures don't eat the storage quota.
 async function resize(file: File, maxSize = 1800): Promise<Blob> {
   const bitmap = await createImageBitmap(file).catch(() => null);
@@ -49,9 +39,9 @@ async function resize(file: File, maxSize = 1800): Promise<Blob> {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b ?? file), 'image/jpeg', 0.85));
 }
 
-export async function uploadPhoto(file: File, userId: string) {
+export async function uploadPhoto(file: File) {
   const blob = await resize(file);
-  const path = `${userId}/${crypto.randomUUID()}.jpg`;
+  const path = `${crypto.randomUUID()}.jpg`;
   const { error } = await supabase.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
   if (error) throw error;
   return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl;

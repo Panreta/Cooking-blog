@@ -9,13 +9,13 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
-  import { supabase, getUser, type Post } from '../lib/supabase';
+  import { supabase, type Post } from '../lib/supabase';
   import { url, esc, formatDate, paragraphs } from '../lib/util';
 
   const root = document.getElementById('post')!;
   const id = new URLSearchParams(location.search).get('id');
 
-  function render(p: Post, isOwner: boolean) {
+  function render(p: Post) {
     document.title = `${p.title} · Cooking Bible`;
     const facts = [
       ['Prep', p.prep_time],
@@ -44,14 +44,10 @@ import Base from '../layouts/Base.astro';
         <h1>${esc(p.title)}</h1>
         ${p.description ? `<p class="lede">${esc(p.description)}</p>` : ''}
         <span class="eyebrow">By ${esc(p.author_name)} · ${formatDate(p.created_at)}</span>
-        ${
-          isOwner
-            ? `<div class="owner-actions">
-                <a class="btn btn-ghost" href="${url(`new/?id=${p.id}`)}">Edit</a>
-                <button class="btn btn-danger" id="delete">Delete</button>
-              </div>`
-            : ''
-        }
+        <div class="owner-actions">
+          <a class="btn btn-ghost" href="${url(`new/?id=${p.id}`)}">Edit</a>
+          <button class="btn btn-danger" id="delete">Delete</button>
+        </div>
       </header>
       <div class="container"><div class="cover"><img src="${esc(p.cover_url)}" alt="${esc(p.title)}"></div></div>
       <div class="container layout">
@@ -71,7 +67,7 @@ import Base from '../layouts/Base.astro';
       </div>`;
 
     document.getElementById('delete')?.addEventListener('click', async () => {
-      if (!confirm('Delete this post? This cannot be undone.')) return;
+      if (!confirm('Delete this recipe? This cannot be undone.')) return;
       const { error } = await supabase.from('posts').delete().eq('id', p.id);
       if (error) return alert(error.message);
       location.href = url();
@@ -83,12 +79,12 @@ import Base from '../layouts/Base.astro';
       root.innerHTML = `<p class="status container">Recipe not found. <a href="${url()}">Back to all recipes</a></p>`;
       return;
     }
-    const [{ data, error }, user] = await Promise.all([supabase.from('posts').select('*').eq('id', id).maybeSingle(), getUser()]);
+    const { data, error } = await supabase.from('posts').select('*').eq('id', id).maybeSingle();
     if (error || !data) {
       root.innerHTML = `<p class="status container">Recipe not found. <a href="${url()}">Back to all recipes</a></p>`;
       return;
     }
-    render(data as Post, user?.id === data.author_id);
+    render(data as Post);
   }
 
   load();

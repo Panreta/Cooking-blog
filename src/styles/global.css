@@ -129,26 +129,18 @@ h3 {
   align-items: center;
   gap: 18px;
 }
-#nav a,
-.link-btn {
+#nav a {
   color: var(--muted);
   text-decoration: none;
   font: 500 0.95rem var(--sans);
   white-space: nowrap;
 }
-#nav a:hover,
-.link-btn:hover {
+#nav a:hover {
   color: var(--accent);
 }
 #nav .nav-cta {
   color: var(--accent);
   font-weight: 600;
-}
-.link-btn {
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
 }
 @media (max-width: 480px) {
   #nav .nav-home {

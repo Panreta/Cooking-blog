@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 ---
 
-<Base title="New post">
+<Base title="Add recipe">
   <section class="container form-page">
     <h1 id="heading">Share a recipe</h1>
     <p class="sub">Add your photos and words — the site arranges them into a recipe page.</p>
@@ -17,6 +17,10 @@ import Base from '../layouts/Base.astro';
         <label class="field">
           <span>Title</span>
           <input type="text" name="title" required maxlength="200" placeholder="Silky Brown-Butter Pumpkin Pie" />
+        </label>
+        <label class="field">
+          <span>Your name</span>
+          <input type="text" name="author_name" maxlength="80" placeholder="Shown as “By …” on the recipe" />
         </label>
         <label class="field">
           <span>Short description</span>
@@ -89,7 +93,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
-  import { supabase, getUser, displayName, uploadPhoto, type Post, type Step } from '../lib/supabase';
+  import { supabase, uploadPhoto, type Post, type Step } from '../lib/supabase';
   import { url, esc, lines } from '../lib/util';
 
   const form = document.getElementById('post-form') as HTMLFormElement;
@@ -155,24 +159,19 @@ import Base from '../layouts/Base.astro';
   document.getElementById('add-step')!.addEventListener('click', () => addStep().focus());
 
   async function init() {
-    const user = await getUser();
-    if (!user) {
-      gate.innerHTML = `You need to log in to post. <a href="${url('login/')}">Log in or sign up</a>`;
-      return;
-    }
-
     (document.getElementById('cancel') as HTMLAnchorElement).href = editId ? url(`post/?id=${editId}`) : url();
 
     if (editId) {
       const { data, error } = await supabase.from('posts').select('*').eq('id', editId).maybeSingle();
-      if (error || !data || data.author_id !== user.id) {
-        gate.innerHTML = `You can only edit your own posts. <a href="${url()}">Back to recipes</a>`;
+      if (error || !data) {
+        gate.innerHTML = `Recipe not found. <a href="${url()}">Back to recipes</a>`;
         return;
       }
       const p = data as Post;
       document.getElementById('heading')!.textContent = 'Edit recipe';
       submit.textContent = 'Save changes';
       field('title').value = p.title;
+      field('author_name').value = p.author_name;
       field('description').value = p.description;
       field('prep_time').value = p.prep_time ?? '';
       field('cook_time').value = p.cook_time ?? '';
@@ -207,19 +206,20 @@ import Base from '../layouts/Base.astro';
       submit.textContent = 'Uploading photos…';
 
       try {
-        const coverUrl = cover.file ? await uploadPhoto(cover.file, user.id) : cover.url!;
+        const coverUrl = cover.file ? await uploadPhoto(cover.file) : cover.url!;
         const rows = [...stepsBox.querySelectorAll<HTMLElement>('.step-row')];
         const steps: Step[] = [];
         for (const row of rows) {
           const text = row.querySelector('textarea')!.value.trim();
           const slot = stepPhotos.get(row)!;
-          const photo = slot.file ? await uploadPhoto(slot.file, user.id) : slot.url;
+          const photo = slot.file ? await uploadPhoto(slot.file) : slot.url;
           if (text || photo) steps.push({ text, photo });
         }
 
         submit.textContent = 'Saving…';
         const values = {
           title: field('title').value.trim(),
+          author_name: field('author_name').value.trim() || 'Anonymous',
           description: field('description').value.trim(),
           prep_time: field('prep_time').value.trim() || null,
           cook_time: field('cook_time').value.trim() || null,
@@ -237,7 +237,7 @@ import Base from '../layouts/Base.astro';
 
         const query = editId
           ? supabase.from('posts').update({ ...values, updated_at: new Date().toISOString() }).eq('id', editId).select('id').single()
-          : supabase.from('posts').insert({ ...values, author_name: displayName(user) }).select('id').single();
+          : supabase.from('posts').insert(values).select('id').single();
         const { data, error } = await query;
         if (error) throw error;
         location.href = url(`post/?id=${data.id}`);
