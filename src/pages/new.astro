@@ -1,0 +1,254 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="New post">
+  <section class="container form-page">
+    <h1 id="heading">Share a recipe</h1>
+    <p class="sub">Add your photos and words — the site arranges them into a recipe page.</p>
+
+    <form id="post-form" hidden>
+      <div class="panel">
+        <h2>The dish</h2>
+        <label class="photo-pick cover-pick field" id="cover-pick">
+          <span id="cover-hint">📷 Tap to add a cover photo (required)</span>
+          <input type="file" accept="image/*" id="cover-input" />
+        </label>
+        <label class="field">
+          <span>Title</span>
+          <input type="text" name="title" required maxlength="200" placeholder="Silky Brown-Butter Pumpkin Pie" />
+        </label>
+        <label class="field">
+          <span>Short description</span>
+          <input type="text" name="description" maxlength="300" placeholder="One sentence shown on the home page" />
+        </label>
+        <div class="row field">
+          <label class="field"><span>Prep time</span><input type="text" name="prep_time" placeholder="20 min" /></label>
+          <label class="field"><span>Cook time</span><input type="text" name="cook_time" placeholder="1 hr" /></label>
+          <label class="field"><span>Servings</span><input type="text" name="servings" placeholder="4" /></label>
+        </div>
+        <label class="field">
+          <span>Categories</span>
+          <input type="text" name="tags" placeholder="Dessert, Thanksgiving" />
+          <small>Separate with commas.</small>
+        </label>
+      </div>
+
+      <div class="panel">
+        <h2>Ingredients</h2>
+        <label class="field">
+          <textarea name="ingredients" rows="6" placeholder={'1 can pumpkin purée\n3 eggs\n1 cup heavy cream'}></textarea>
+          <small>One ingredient per line.</small>
+        </label>
+      </div>
+
+      <div class="panel">
+        <h2>Your story</h2>
+        <label class="field">
+          <textarea name="story" rows="5" placeholder="Where this recipe comes from, why you love it…"></textarea>
+          <small>Leave a blank line between paragraphs.</small>
+        </label>
+      </div>
+
+      <div class="panel">
+        <h2>Steps</h2>
+        <div id="steps"></div>
+        <button type="button" class="btn btn-ghost" id="add-step" style="margin-top:12px">+ Add step</button>
+      </div>
+
+      <div class="panel">
+        <h2>Tip <small style="font:400 0.85rem var(--sans);color:var(--muted)">(optional)</small></h2>
+        <label class="field">
+          <textarea name="tips" rows="2" placeholder="Cover the crust edges with foil if they brown too fast."></textarea>
+        </label>
+      </div>
+
+      <p id="message" class="notice error" hidden style="margin-bottom:16px"></p>
+      <div class="form-actions">
+        <button class="btn" type="submit" id="submit">Publish</button>
+        <a class="btn btn-ghost" id="cancel">Cancel</a>
+      </div>
+    </form>
+
+    <p id="gate" class="status">Loading…</p>
+  </section>
+
+  <template id="step-template">
+    <div class="step-row">
+      <div class="step-num"></div>
+      <div class="step-main">
+        <textarea placeholder="Describe this step…"></textarea>
+        <label class="photo-pick step-pick">
+          <span>+ Photo</span>
+          <input type="file" accept="image/*" />
+        </label>
+      </div>
+      <button type="button" class="step-remove" aria-label="Remove step">×</button>
+    </div>
+  </template>
+</Base>
+
+<script>
+  import { supabase, getUser, displayName, uploadPhoto, type Post, type Step } from '../lib/supabase';
+  import { url, esc, lines } from '../lib/util';
+
+  const form = document.getElementById('post-form') as HTMLFormElement;
+  const gate = document.getElementById('gate')!;
+  const stepsBox = document.getElementById('steps')!;
+  const template = document.getElementById('step-template') as HTMLTemplateElement;
+  const message = document.getElementById('message')!;
+  const submit = document.getElementById('submit') as HTMLButtonElement;
+  const coverPick = document.getElementById('cover-pick')!;
+  const coverInput = document.getElementById('cover-input') as HTMLInputElement;
+  const editId = new URLSearchParams(location.search).get('id');
+
+  const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+
+  // A photo slot holds either a newly picked file or the URL of an existing upload.
+  type PhotoSlot = { file: File | null; url: string | null };
+  let cover: PhotoSlot = { file: null, url: null };
+  const stepPhotos = new WeakMap<HTMLElement, PhotoSlot>();
+
+  function preview(pick: HTMLElement, src: string) {
+    pick.querySelector('img')?.remove();
+    pick.querySelector('span')!.hidden = true;
+    const img = document.createElement('img');
+    img.src = src;
+    pick.prepend(img);
+  }
+
+  coverInput.addEventListener('change', () => {
+    const file = coverInput.files?.[0];
+    if (!file) return;
+    cover = { file, url: null };
+    preview(coverPick, URL.createObjectURL(file));
+  });
+
+  function renumber() {
+    stepsBox.querySelectorAll('.step-num').forEach((n, i) => (n.textContent = String(i + 1)));
+  }
+
+  function addStep(step: Step = { text: '', photo: null }) {
+    const row = template.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    const textarea = row.querySelector('textarea')!;
+    const pick = row.querySelector('.step-pick') as HTMLElement;
+    const input = pick.querySelector('input')!;
+    textarea.value = step.text;
+    stepPhotos.set(row, { file: null, url: step.photo });
+    if (step.photo) preview(pick, step.photo);
+
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      stepPhotos.set(row, { file, url: null });
+      preview(pick, URL.createObjectURL(file));
+    });
+    row.querySelector('.step-remove')!.addEventListener('click', () => {
+      row.remove();
+      renumber();
+    });
+    stepsBox.append(row);
+    renumber();
+    return textarea;
+  }
+
+  document.getElementById('add-step')!.addEventListener('click', () => addStep().focus());
+
+  async function init() {
+    const user = await getUser();
+    if (!user) {
+      gate.innerHTML = `You need to log in to post. <a href="${url('login/')}">Log in or sign up</a>`;
+      return;
+    }
+
+    (document.getElementById('cancel') as HTMLAnchorElement).href = editId ? url(`post/?id=${editId}`) : url();
+
+    if (editId) {
+      const { data, error } = await supabase.from('posts').select('*').eq('id', editId).maybeSingle();
+      if (error || !data || data.author_id !== user.id) {
+        gate.innerHTML = `You can only edit your own posts. <a href="${url()}">Back to recipes</a>`;
+        return;
+      }
+      const p = data as Post;
+      document.getElementById('heading')!.textContent = 'Edit recipe';
+      submit.textContent = 'Save changes';
+      field('title').value = p.title;
+      field('description').value = p.description;
+      field('prep_time').value = p.prep_time ?? '';
+      field('cook_time').value = p.cook_time ?? '';
+      field('servings').value = p.servings ?? '';
+      field('tags').value = p.tags.join(', ');
+      field('ingredients').value = p.ingredients.join('\n');
+      field('story').value = p.story;
+      field('tips').value = p.tips;
+      cover = { file: null, url: p.cover_url };
+      preview(coverPick, p.cover_url);
+      (p.steps.length ? p.steps : [{ text: '', photo: null }]).forEach((s) => addStep(s));
+    } else {
+      addStep();
+      addStep();
+    }
+
+    gate.hidden = true;
+    form.hidden = false;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      message.hidden = true;
+      if (!cover.file && !cover.url) {
+        message.textContent = 'Please add a cover photo.';
+        message.hidden = false;
+        coverPick.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      submit.disabled = true;
+      const label = submit.textContent;
+      submit.textContent = 'Uploading photos…';
+
+      try {
+        const coverUrl = cover.file ? await uploadPhoto(cover.file, user.id) : cover.url!;
+        const rows = [...stepsBox.querySelectorAll<HTMLElement>('.step-row')];
+        const steps: Step[] = [];
+        for (const row of rows) {
+          const text = row.querySelector('textarea')!.value.trim();
+          const slot = stepPhotos.get(row)!;
+          const photo = slot.file ? await uploadPhoto(slot.file, user.id) : slot.url;
+          if (text || photo) steps.push({ text, photo });
+        }
+
+        submit.textContent = 'Saving…';
+        const values = {
+          title: field('title').value.trim(),
+          description: field('description').value.trim(),
+          prep_time: field('prep_time').value.trim() || null,
+          cook_time: field('cook_time').value.trim() || null,
+          servings: field('servings').value.trim() || null,
+          tags: field('tags')
+            .value.split(',')
+            .map((t) => t.trim())
+            .filter(Boolean),
+          ingredients: lines(field('ingredients').value),
+          story: field('story').value.trim(),
+          tips: field('tips').value.trim(),
+          steps,
+          cover_url: coverUrl,
+        };
+
+        const query = editId
+          ? supabase.from('posts').update({ ...values, updated_at: new Date().toISOString() }).eq('id', editId).select('id').single()
+          : supabase.from('posts').insert({ ...values, author_name: displayName(user) }).select('id').single();
+        const { data, error } = await query;
+        if (error) throw error;
+        location.href = url(`post/?id=${data.id}`);
+      } catch (err) {
+        message.innerHTML = `Couldn't save: ${esc((err as Error).message)}`;
+        message.hidden = false;
+        submit.disabled = false;
+        submit.textContent = label;
+      }
+    });
+  }
+
+  init();
+</script>

@@ -1,0 +1,97 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base>
+  <div id="feed">
+    <p class="status container">Loading recipes…</p>
+  </div>
+</Base>
+
+<script>
+  import { supabase, isConfigured, type Post } from '../lib/supabase';
+  import { url, esc, formatDate } from '../lib/util';
+
+  const feed = document.getElementById('feed')!;
+  const postUrl = (p: Post) => url(`post/?id=${p.id}`);
+
+  function card(p: Post) {
+    const time = [p.prep_time, p.cook_time].filter(Boolean).join(' + ');
+    return `
+      <a class="card" href="${postUrl(p)}">
+        <div class="thumb"><img src="${esc(p.cover_url)}" alt="" loading="lazy"></div>
+        <div class="card-body">
+          ${p.tags[0] ? `<span class="tag">${esc(p.tags[0])}</span>` : ''}
+          <h3>${esc(p.title)}</h3>
+          <p>${esc(p.description)}</p>
+          <div class="meta">${esc(p.author_name)} · ${formatDate(p.created_at)}${time ? ` · ${esc(time)}` : ''}</div>
+        </div>
+      </a>`;
+  }
+
+  function render(posts: Post[], activeTag: string | null) {
+    if (posts.length === 0) {
+      feed.innerHTML = `
+        <section class="container status">
+          <h1>No recipes yet</h1>
+          <p>Be the first to share one.</p>
+          <a class="btn" href="${url('new/')}">+ New post</a>
+        </section>`;
+      return;
+    }
+
+    const tags = [...new Set(posts.flatMap((p) => p.tags))].sort();
+    const shown = activeTag ? posts.filter((p) => p.tags.includes(activeTag)) : posts;
+    const [featured, ...rest] = activeTag ? [null, ...shown] : shown;
+
+    feed.innerHTML = `
+      ${
+        featured
+          ? `<section class="container hero">
+              <a class="hero-img" href="${postUrl(featured)}"><img src="${esc(featured.cover_url)}" alt=""></a>
+              <div class="hero-text">
+                <span class="eyebrow">Latest recipe · ${formatDate(featured.created_at)}</span>
+                <h1><a href="${postUrl(featured)}">${esc(featured.title)}</a></h1>
+                <p>${esc(featured.description)}</p>
+                <a class="btn" href="${postUrl(featured)}">Get the recipe →</a>
+              </div>
+            </section>`
+          : ''
+      }
+      <section class="container" ${activeTag ? 'style="padding-top:40px"' : ''}>
+        ${rest.length || activeTag ? `<h2 class="section-title" ${activeTag ? 'style="border:0;padding-top:0"' : ''}>${activeTag ? esc(activeTag) : 'More from the kitchen'}</h2>` : ''}
+        ${
+          tags.length > 1
+            ? `<div class="filters">
+                <button class="chip" data-tag="" aria-pressed="${!activeTag}">All</button>
+                ${tags.map((t) => `<button class="chip" data-tag="${esc(t)}" aria-pressed="${t === activeTag}">${esc(t)}</button>`).join('')}
+              </div>`
+            : ''
+        }
+        <div class="grid">${rest.map((p) => card(p!)).join('')}</div>
+      </section>`;
+
+    feed.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const tag = chip.dataset.tag || null;
+        history.replaceState(null, '', tag ? `?tag=${encodeURIComponent(tag)}` : location.pathname);
+        render(posts, tag);
+      });
+    });
+  }
+
+  async function load() {
+    if (!isConfigured) {
+      feed.innerHTML = `<div class="container" style="padding-top:40px"><p class="notice error">Supabase isn't connected yet. Fill in <code>src/config.ts</code> — see README.md.</p></div>`;
+      return;
+    }
+    const { data, error } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
+    if (error) {
+      feed.innerHTML = `<div class="container" style="padding-top:40px"><p class="notice error">Couldn't load recipes: ${esc(error.message)}</p></div>`;
+      return;
+    }
+    render(data as Post[], new URLSearchParams(location.search).get('tag'));
+  }
+
+  load();
+</script>

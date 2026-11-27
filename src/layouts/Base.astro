@@ -1,0 +1,66 @@
+---
+import '../styles/global.css';
+import { url } from '../lib/util';
+
+interface Props {
+  title?: string;
+}
+
+const siteName = 'Simmer & Crumb';
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Recipes, stories, and photos from our kitchens." />
+    <title>{title ? `${title} · ${siteName}` : siteName}</title>
+    <link rel="icon" href={url('favicon.svg')} type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container bar">
+        <a href={url()} class="brand">{siteName}</a>
+        <nav id="nav">
+          <a href={url()} class="nav-home">Recipes</a>
+          <a href={url('login/')} data-auth="out">Log in</a>
+          <a href={url('new/')} class="nav-cta" data-auth="in" hidden>+ New post</a>
+          <button type="button" class="link-btn" id="logout" data-auth="in" hidden>Log out</button>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="container">© {new Date().getFullYear()} {siteName}</div>
+    </footer>
+
+    <script>
+      import { supabase } from '../lib/supabase';
+      import { url } from '../lib/util';
+
+      function setNav(loggedIn: boolean) {
+        document.querySelectorAll<HTMLElement>('[data-auth]').forEach((el) => {
+          el.hidden = el.dataset.auth !== (loggedIn ? 'in' : 'out');
+        });
+      }
+
+      supabase.auth.getSession().then(({ data }) => setNav(!!data.session));
+      supabase.auth.onAuthStateChange((_event, session) => setNav(!!session));
+
+      document.getElementById('logout')!.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        location.href = url();
+      });
+    </script>
+  </body>
+</html>
